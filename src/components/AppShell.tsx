@@ -1,12 +1,11 @@
 import { type ReactNode } from 'react';
 import {
-  ShieldCheck, Store, Package, MessageSquare, Settings, LogOut,
+  ShieldCheck, Package, MessageSquare, Settings, LogOut,
   KeyRound, ClipboardCheck, ScrollText, type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export type View =
-  | 'marketplace'
   | 'orders'
   | 'chats'
   | 'settings'
@@ -21,7 +20,6 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { id: 'marketplace', label: 'Marketplace', icon: Store },
   { id: 'orders', label: 'Orders', icon: Package },
   { id: 'chats', label: 'Chats', icon: MessageSquare },
   { id: 'agent', label: 'Agent Wallet', icon: KeyRound },
@@ -49,7 +47,7 @@ export default function AppShell({ current, onNavigate, children }: AppShellProp
           </div>
           <div>
             <p className="text-base font-bold tracking-tight text-ink-900">Payrail</p>
-            <p className="text-[10px] text-ink-400 -mt-0.5 uppercase tracking-wider">Escrow marketplace</p>
+            <p className="text-[10px] text-ink-400 -mt-0.5 uppercase tracking-wider">Escrow trading</p>
           </div>
         </div>
 

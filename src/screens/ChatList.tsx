@@ -76,7 +76,7 @@ export default function ChatList({ onNavigate: _onNavigate, onOpenChat }: Props)
             </div>
             <p className="text-sm font-medium text-ink-600">No conversations yet</p>
             <p className="text-xs text-ink-400 mt-1">
-              Browse the marketplace and start a chat to begin a trade.
+              Conversations with sellers will show up here once a trade starts.
             </p>
           </div>
         ) : (

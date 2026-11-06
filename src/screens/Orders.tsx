@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
-  Lock, CheckCircle2, XCircle, ArrowRight, TrendingUp,
-  ShieldAlert, Clock, Package, Plus, Store,
+  Lock, CheckCircle2, XCircle, ArrowRight,
+  ShieldAlert, Clock,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { fetchTransactions } from '@/lib/dataApi';
@@ -9,14 +9,11 @@ import { formatCurrency, timeAgo } from '@/lib/format';
 import { STATUS_META, statusBadgeClass } from '@/lib/statusMeta';
 import { STATUS_ICONS } from '@/lib/statusIcons';
 import type { Transaction } from '@/lib/types';
-import type { View } from '@/components/AppShell';
-
 interface Props {
-  onNavigate: (v: View) => void;
   onOpenTransaction: (id: string) => void;
 }
 
-export default function Orders({ onNavigate, onOpenTransaction }: Props) {
+export default function Orders({ onOpenTransaction }: Props) {
   const { profile } = useAuth();
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,13 +68,6 @@ export default function Orders({ onNavigate, onOpenTransaction }: Props) {
         ))}
       </div>
 
-      {/* Actions bar */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => onNavigate('marketplace')} className="btn-primary text-sm">
-          <Store className="w-4 h-4" /> Browse marketplace
-        </button>
-      </div>
-
       {/* Orders list */}
       <div className="card p-6 animate-slide-up">
         <div className="flex items-center justify-between mb-4">
@@ -108,12 +98,9 @@ export default function Orders({ onNavigate, onOpenTransaction }: Props) {
               <Clock className="w-6 h-6 text-ink-400" />
             </div>
             <p className="text-sm font-medium text-ink-600">No orders yet</p>
-            <p className="text-xs text-ink-400 mt-1 mb-4">
-              Browse the marketplace and start a trade to see orders here.
+            <p className="text-xs text-ink-400 mt-1">
+              Trades you start with sellers will appear here.
             </p>
-            <button onClick={() => onNavigate('marketplace')} className="btn-primary">
-              <TrendingUp className="w-3.5 h-3.5" /> Browse marketplace
-            </button>
           </div>
         ) : (
           <div className="space-y-2">

@@ -3,11 +3,9 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import AuthScreen from '@/screens/AuthScreen';
 import Onboarding from '@/screens/Onboarding';
 import AppShell, { type View } from '@/components/AppShell';
-import Marketplace from '@/screens/Marketplace';
 import Orders from '@/screens/Orders';
 import ChatList from '@/screens/ChatList';
 import TradeChat from '@/screens/TradeChat';
-import ProductDetail from '@/screens/ProductDetail';
 import TransactionDetail from '@/screens/TransactionDetail';
 import Settings from '@/screens/Settings';
 import AgentWallet from '@/screens/AgentWallet';
@@ -16,13 +14,12 @@ import AuditLedger from '@/screens/AuditLedger';
 
 type Overlay =
   | { kind: 'none' }
-  | { kind: 'product'; productId: string }
   | { kind: 'chat'; conversationId: string }
   | { kind: 'transaction'; transactionId: string };
 
 function AppContent() {
   const { user, profile, loading } = useAuth();
-  const [view, setView] = useState<View>('marketplace');
+  const [view, setView] = useState<View>('orders');
   const [overlay, setOverlay] = useState<Overlay>({ kind: 'none' });
 
   if (loading) {
@@ -42,10 +39,6 @@ function AppContent() {
     setView(v);
   }
 
-  function openProduct(id: string) {
-    setOverlay({ kind: 'product', productId: id });
-  }
-
   function openChat(id: string) {
     setOverlay({ kind: 'chat', conversationId: id });
   }
@@ -54,19 +47,7 @@ function AppContent() {
     setOverlay({ kind: 'transaction', transactionId: id });
   }
 
-  // Full-screen overlays (product detail, trade chat, transaction detail)
-  if (overlay.kind === 'product') {
-    return (
-      <AppShell current="marketplace" onNavigate={navigate}>
-        <ProductDetail
-          productId={overlay.productId}
-          onBack={navigate}
-          onOpenChat={openChat}
-        />
-      </AppShell>
-    );
-  }
-
+  // Full-screen overlays (trade chat, transaction detail)
   if (overlay.kind === 'chat') {
     return (
       <AppShell current="chats" onNavigate={navigate}>
@@ -92,8 +73,7 @@ function AppContent() {
 
   return (
     <AppShell current={view} onNavigate={navigate}>
-      {view === 'marketplace' && <Marketplace onNavigate={navigate} onOpenProduct={openProduct} />}
-      {view === 'orders' && <Orders onNavigate={navigate} onOpenTransaction={openTransaction} />}
+      {view === 'orders' && <Orders onOpenTransaction={openTransaction} />}
       {view === 'chats' && <ChatList onNavigate={navigate} onOpenChat={openChat} />}
       {view === 'agent' && <AgentWallet />}
       {view === 'approvals' && <ApprovalQueue onOpenTransaction={openTransaction} />}

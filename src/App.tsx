@@ -10,6 +10,9 @@ import TradeChat from '@/screens/TradeChat';
 import ProductDetail from '@/screens/ProductDetail';
 import TransactionDetail from '@/screens/TransactionDetail';
 import Settings from '@/screens/Settings';
+import AgentWallet from '@/screens/AgentWallet';
+import ApprovalQueue from '@/screens/ApprovalQueue';
+import AuditLedger from '@/screens/AuditLedger';
 
 type Overlay =
   | { kind: 'none' }
@@ -92,6 +95,9 @@ function AppContent() {
       {view === 'marketplace' && <Marketplace onNavigate={navigate} onOpenProduct={openProduct} />}
       {view === 'orders' && <Orders onNavigate={navigate} onOpenTransaction={openTransaction} />}
       {view === 'chats' && <ChatList onNavigate={navigate} onOpenChat={openChat} />}
+      {view === 'agent' && <AgentWallet />}
+      {view === 'approvals' && <ApprovalQueue onOpenTransaction={openTransaction} />}
+      {view === 'ledger' && <AuditLedger />}
       {view === 'settings' && <Settings />}
     </AppShell>
   );

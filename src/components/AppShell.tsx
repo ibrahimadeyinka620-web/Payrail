@@ -1,11 +1,18 @@
 import { type ReactNode } from 'react';
 import {
   ShieldCheck, Store, Package, MessageSquare, Settings, LogOut,
-  type LucideIcon,
+  KeyRound, ClipboardCheck, ScrollText, type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
-export type View = 'marketplace' | 'orders' | 'chats' | 'settings';
+export type View =
+  | 'marketplace'
+  | 'orders'
+  | 'chats'
+  | 'settings'
+  | 'agent'
+  | 'approvals'
+  | 'ledger';
 
 interface NavItem {
   id: View;
@@ -17,6 +24,9 @@ const NAV: NavItem[] = [
   { id: 'marketplace', label: 'Marketplace', icon: Store },
   { id: 'orders', label: 'Orders', icon: Package },
   { id: 'chats', label: 'Chats', icon: MessageSquare },
+  { id: 'agent', label: 'Agent Wallet', icon: KeyRound },
+  { id: 'approvals', label: 'Approvals', icon: ClipboardCheck },
+  { id: 'ledger', label: 'Audit Ledger', icon: ScrollText },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 

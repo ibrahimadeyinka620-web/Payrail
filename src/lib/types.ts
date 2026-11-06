@@ -128,6 +128,36 @@ export interface DraftTransactionData {
   transaction_id?: string;
 }
 
+export type AgentRequestStatus = 'pending_approval' | 'approved' | 'declined' | 'blocked';
+
+export interface AgentToken {
+  id: string;
+  owner_id: string;
+  label: string;
+  token_prefix: string;
+  expires_at: string;
+  merchant_whitelist: string[];
+  revoked: boolean;
+  created_at: string;
+}
+
+export interface AgentPaymentRequest {
+  id: string;
+  token_id: string;
+  owner_id: string;
+  vendor_name: string;
+  merchant_handle: string;
+  amount_cents: number;
+  currency: string;
+  description: string;
+  source_context: string;
+  status: AgentRequestStatus;
+  block_reason: string | null;
+  transaction_id: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
 export interface ConversationWithDetails extends Conversation {
   product?: Product;
   messages?: ChatMessageRow[];

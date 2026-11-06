@@ -1,15 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
-import {
-  Send, ShieldCheck, ShieldAlert, CheckCircle2, Sparkles,
-  ArrowRight, Lock, ArrowLeft, Package,
-} from 'lucide-react';
+import { Send, ShieldCheck, Sparkles, Package, ArrowLeft, Plus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchConversation, fetchMessages, fetchProduct, fetchSellerProfile,
-  sendMessage, createTransaction, addAuditEntry, updateConversation,
+  sendMessage, respondToOrder,
 } from '@/lib/dataApi';
-import { draftTransaction } from '@/lib/aiEngine';
+import { verifyOrderSource } from '@/lib/aiEngine';
 import { formatCurrency } from '@/lib/format';
+import OrderCard from '@/components/OrderCard';
 import type {
   Conversation, ChatMessageRow, Product, DraftTransactionData,
 } from '@/lib/types';
@@ -29,23 +27,29 @@ export default function TradeChat({ conversationId, onBack, onOpenTransaction }:
   const [messages, setMessages] = useState<ChatMessageRow[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
-  const [pendingDraft, setPendingDraft] = useState<DraftTransactionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [orderFormOpen, setOrderFormOpen] = useState(false);
+  const [orderAmount, setOrderAmount] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     (async () => {
-      const conv = await fetchConversation(conversationId);
-      setConversation(conv);
-      if (conv) {
-        const [msgs, prod, seller] = await Promise.all([
-          fetchMessages(conversationId),
-          fetchProduct(conv.product_id),
-          fetchSellerProfile(conv.seller_id),
-        ]);
-        setMessages(msgs);
-        setProduct(prod);
-        setSellerName(seller?.display_name ?? 'Seller');
+      try {
+        const conv = await fetchConversation(conversationId);
+        setConversation(conv);
+        if (conv) {
+          const [msgs, prod, seller] = await Promise.all([
+            fetchMessages(conversationId),
+            fetchProduct(conv.product_id),
+            fetchSellerProfile(conv.seller_id),
+          ]);
+          setMessages(msgs);
+          setProduct(prod);
+          setSellerName(seller?.display_name ?? 'Seller');
+        }
+      } catch {
+        setActionError('This conversation could not be loaded.');
       }
       setLoading(false);
     })();
@@ -57,90 +61,96 @@ export default function TradeChat({ conversationId, onBack, onOpenTransaction }:
     }
   }, [messages, busy]);
 
-  async function handleSend(text?: string) {
-    const msg = (text ?? input).trim();
-    if (!msg || busy || !user || !conversation || !product) return;
+  const isBuyer = conversation?.buyer_id === user?.id;
+  const isSeller = conversation?.seller_id === user?.id;
+
+  async function refreshMessages() {
+    if (!conversation) return;
+    setMessages(await fetchMessages(conversation.id));
+  }
+
+  async function handleSend() {
+    const msg = input.trim();
+    if (!msg || busy || !user || !conversation) return;
     setInput('');
     setBusy(true);
-
-    // Save user message
-    await sendMessage(conversation.id, user.id, 'user', msg);
-    const userMsg: ChatMessageRow = {
-      id: crypto.randomUUID(),
-      conversation_id: conversation.id,
-      sender_id: user.id,
-      role: 'user',
-      content: msg,
-      draft_transaction: null,
-      created_at: new Date().toISOString(),
-    };
-    setMessages((m) => [...m, userMsg]);
-
-    // Simulate AI thinking
-    await new Promise((r) => setTimeout(r, 800));
-
-    const result = draftTransaction(msg, product.title, product.price_cents, sellerName);
-
-    const assistantMsg: ChatMessageRow = {
-      id: crypto.randomUUID(),
-      conversation_id: conversation.id,
-      sender_id: conversation.seller_id,
-      role: 'assistant',
-      content: result.reasoning,
-      draft_transaction: result.draft ?? null,
-      created_at: new Date().toISOString(),
-    };
-    await sendMessage(conversation.id, conversation.seller_id, 'assistant', result.reasoning, result.draft ?? null);
-    setMessages((m) => [...m, assistantMsg]);
-
-    if (result.draft) {
-      setPendingDraft(result.draft);
+    setActionError(null);
+    try {
+      await sendMessage(conversation.id, user.id, 'user', msg);
+      await refreshMessages();
+    } catch {
+      setInput(msg);
+      setActionError('Your message could not be sent. Please try again.');
     }
     setBusy(false);
   }
 
-  async function handleApprove() {
-    if (!pendingDraft || !conversation || !user) return;
+  function openOrderForm() {
+    if (!product) return;
+    setOrderAmount((product.price_cents / 100).toFixed(2));
+    setActionError(null);
+    setOrderFormOpen(true);
+  }
+
+  async function handleCreateOrder() {
+    if (!user || !conversation || !product || busy) return;
+    const dollars = Number(orderAmount);
+    const amountCents = Math.round(dollars * 100);
+    if (!Number.isFinite(dollars) || amountCents <= 0) {
+      setActionError('Enter an amount greater than zero.');
+      return;
+    }
     setBusy(true);
-    const txn = await createTransaction({
-      vendor_name: pendingDraft.vendor_name,
-      vendor_handle: pendingDraft.vendor_handle,
-      description: pendingDraft.description,
-      amount_cents: pendingDraft.amount_cents,
-      currency: pendingDraft.currency,
-      status: 'awaiting_approval',
-      ai_request: messages.find((m) => m.role === 'user')?.content ?? '',
-      ai_reasoning: pendingDraft.ai_reasoning,
-      source_text: `Conversation about "${product?.title ?? 'product'}"`,
-      source_filename: null,
-      proof_verified: pendingDraft.proof_verified,
-    });
-
-    await addAuditEntry(txn.id, {
-      step: 'user_request',
-      actor: 'user',
-      title: 'Trade initiated from chat',
-      detail: messages.find((m) => m.role === 'user')?.content ?? '',
-    });
-    await addAuditEntry(txn.id, {
-      step: 'ai_extraction',
-      actor: 'ai',
-      title: 'AI drafted transaction from conversation',
-      detail: pendingDraft.ai_reasoning,
-      metadata: {
-        amount_cents: pendingDraft.amount_cents,
-        proof_verified: pendingDraft.proof_verified,
-        product_title: product?.title,
-      },
-    });
-
-    await updateConversation(conversation.id, {
-      transaction_id: txn.id,
-      status: 'negotiated',
-    });
-
+    setActionError(null);
+    try {
+      const check = verifyOrderSource(
+        amountCents,
+        product.title,
+        product.price_cents,
+        messages.map((m) => m.content),
+      );
+      const draft: DraftTransactionData = {
+        vendor_name: sellerName,
+        vendor_handle: null,
+        description: `Purchase: ${product.title}`,
+        amount_cents: amountCents,
+        currency: product.currency,
+        ai_reasoning: check.ai_reasoning,
+        source_text: check.source_text,
+        proof_verified: check.proof_verified,
+        order_status: 'pending',
+      };
+      await sendMessage(
+        conversation.id,
+        user.id,
+        'assistant',
+        `Order created for ${formatCurrency(amountCents, product.currency)}. Waiting for the buyer to approve.`,
+        draft,
+      );
+      await refreshMessages();
+      setOrderFormOpen(false);
+      setOrderAmount('');
+    } catch {
+      setActionError('The order could not be created. Please try again.');
+    }
     setBusy(false);
-    onOpenTransaction(txn.id);
+  }
+
+  async function handleRespond(messageId: string, accept: boolean) {
+    if (busy) return;
+    setBusy(true);
+    setActionError(null);
+    let transactionId: string | null = null;
+    try {
+      transactionId = await respondToOrder(messageId, accept);
+      await refreshMessages();
+    } catch {
+      setActionError(accept
+        ? 'The order could not be approved. Please try again.'
+        : 'The order could not be declined. Please try again.');
+    }
+    setBusy(false);
+    if (accept && transactionId) onOpenTransaction(transactionId);
   }
 
   if (loading) {
@@ -169,7 +179,7 @@ export default function TradeChat({ conversationId, onBack, onOpenTransaction }:
     );
   }
 
-  const isBuyer = conversation.buyer_id === user?.id;
+  const canCreateOrder = isSeller && !conversation.transaction_id;
 
   return (
     <div className="flex flex-col h-full">
@@ -199,7 +209,6 @@ export default function TradeChat({ conversationId, onBack, onOpenTransaction }:
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 lg:p-6">
         <div className="max-w-3xl mx-auto space-y-4">
-          {/* Welcome message */}
           {messages.length === 0 && (
             <div className="flex gap-3 animate-fade-in">
               <div className="w-8 h-8 rounded-lg bg-rail-50 border border-rail-200 flex items-center justify-center flex-shrink-0">
@@ -207,80 +216,81 @@ export default function TradeChat({ conversationId, onBack, onOpenTransaction }:
               </div>
               <div className="max-w-[80%] rounded-2xl bg-white border border-base-200 px-4 py-3">
                 <p className="text-sm text-ink-700 leading-relaxed">
-                  Hi{isBuyer ? '' : ''}! I'm your AI trade co-pilot. {isBuyer
-                    ? `Tell the seller you're interested in "${product.title}" and make an offer. I'll draft an escrow transaction once you agree on a price.`
-                    : `A buyer is interested in your "${product.title}". Chat with them and I'll help draft the transaction.`}
+                  {isBuyer
+                    ? `Chat with the seller about "${product.title}". When you agree on a price, the seller can create an order here for you to approve and hold in escrow.`
+                    : `A buyer is interested in "${product.title}". Agree on a price in the chat, then create an order for them to approve.`}
                 </p>
               </div>
             </div>
           )}
 
           {messages.map((m) => (
-            <MessageBubble key={m.id} msg={m} currentUserId={user?.id ?? ''} draft={m.draft_transaction} />
+            m.draft_transaction ? (
+              <div key={m.id} className="flex gap-3 animate-fade-in">
+                <div className="w-8 h-8 rounded-lg bg-rail-50 border border-rail-200 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-4 h-4 text-rail-500" />
+                </div>
+                <OrderCard
+                  msg={m}
+                  draft={m.draft_transaction}
+                  isBuyer={isBuyer ?? false}
+                  busy={busy}
+                  onRespond={handleRespond}
+                  onOpenTransaction={onOpenTransaction}
+                />
+              </div>
+            ) : (
+              <MessageBubble key={m.id} msg={m} isOwn={m.sender_id === user?.id} />
+            )
           ))}
 
-          {pendingDraft && (
-            <DraftCard
-              draft={pendingDraft}
-              productName={product.title}
-              onApprove={handleApprove}
-              onDiscard={() => setPendingDraft(null)}
-              busy={busy}
-            />
-          )}
-
           {busy && (
-            <div className="flex items-center gap-2 text-sm text-ink-400 px-2 animate-fade-in">
-              <Sparkles className="w-4 h-4 text-rail-500 animate-pulse" />
-              Analyzing conversation and drafting transaction…
-            </div>
+            <div className="text-sm text-ink-400 px-2 animate-fade-in">Working…</div>
           )}
         </div>
       </div>
 
-      {/* Suggestion chips */}
-      {messages.length === 0 && (
-        <div className="px-4 lg:px-6 pb-2 max-w-3xl mx-auto w-full">
-          <div className="flex flex-wrap gap-2">
-            {isBuyer ? [
-              `I'll take the ${product.title} for ${formatCurrency(product.price_cents, product.currency)}`,
-              `Is the ${product.title} still available?`,
-            ] : [
-              `Yes, it's available!`,
-              `The price is firm at ${formatCurrency(product.price_cents, product.currency)}`,
-            ].map((s) => (
-              <button
-                key={s}
-                onClick={() => handleSend(s)}
-                className="text-xs px-3 py-1.5 rounded-full bg-base-100 border border-base-300 text-ink-500 hover:text-rail-600 hover:border-rail-300 transition-all"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Input area */}
       <div className="border-t border-base-200 p-4 bg-white flex-shrink-0">
-        <div className="max-w-3xl mx-auto">
-          {pendingDraft && (
-            <div className="mb-3 flex items-center gap-3">
-              <button
-                onClick={handleApprove}
-                disabled={busy}
-                className="btn-primary"
-              >
-                <CheckCircle2 className="w-4 h-4" /> Create escrow <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setPendingDraft(null)}
-                className="btn-ghost"
-              >
-                Discard draft
+        <div className="max-w-3xl mx-auto space-y-3">
+          {actionError && <p className="text-xs text-ember-600 px-2">{actionError}</p>}
+
+          {canCreateOrder && !orderFormOpen && (
+            <div>
+              <button onClick={openOrderForm} disabled={busy} className="btn-secondary text-sm">
+                <Plus className="w-4 h-4" /> Create order
               </button>
             </div>
           )}
+
+          {canCreateOrder && orderFormOpen && (
+            <div className="rounded-2xl border border-rail-200 bg-rail-50/40 p-4 space-y-3 animate-slide-up">
+              <p className="text-sm font-semibold text-ink-900">Create an order for the buyer</p>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center flex-1 rounded-xl bg-white border border-base-300 px-3 focus-within:border-rail-400">
+                  <span className="text-sm text-ink-400">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={orderAmount}
+                    onChange={(e) => setOrderAmount(e.target.value)}
+                    className="flex-1 bg-transparent text-sm text-ink-800 outline-none py-2.5 px-1 tabular-nums"
+                  />
+                </div>
+                <button onClick={handleCreateOrder} disabled={busy} className="btn-primary">
+                  Send order
+                </button>
+                <button onClick={() => setOrderFormOpen(false)} disabled={busy} className="btn-ghost">
+                  Cancel
+                </button>
+              </div>
+              <p className="text-[11px] text-ink-400">
+                The amount is checked against the listing and what was said in the chat.
+              </p>
+            </div>
+          )}
+
           <div className="flex items-end gap-2 rounded-2xl bg-base-50 border border-base-300 p-2 focus-within:border-rail-400 focus-within:ring-2 focus-within:ring-rail-500/10 transition-all">
             <textarea
               value={input}
@@ -303,113 +313,33 @@ export default function TradeChat({ conversationId, onBack, onOpenTransaction }:
               <Send className="w-4 h-4" />
             </button>
           </div>
-          <p className="text-[11px] text-ink-400 mt-2 px-2">
-            The AI co-pilot monitors the chat and drafts a transaction when a price is agreed.
-          </p>
         </div>
       </div>
     </div>
   );
 }
 
-function MessageBubble({
-  msg, currentUserId, draft,
-}: { msg: ChatMessageRow; currentUserId: string; draft: DraftTransactionData | null }) {
-  const isUser = msg.role === 'user' && msg.sender_id === currentUserId;
-  const isAssistant = msg.role === 'assistant';
-
-  if (isAssistant) {
+function MessageBubble({ msg, isOwn }: { msg: ChatMessageRow; isOwn: boolean }) {
+  if (isOwn) {
     return (
-      <div className="flex gap-3 animate-fade-in">
-        <div className="w-8 h-8 rounded-lg bg-rail-50 border border-rail-200 flex items-center justify-center flex-shrink-0">
-          <Sparkles className="w-4 h-4 text-rail-500" />
+      <div className="flex gap-3 flex-row-reverse animate-fade-in">
+        <div className="w-8 h-8 rounded-lg bg-base-100 border border-base-200 flex items-center justify-center flex-shrink-0">
+          <span className="text-xs font-bold text-ink-500">U</span>
         </div>
-        <div className="max-w-[80%] rounded-2xl bg-white border border-base-200 px-4 py-3">
-          <p className="text-sm text-ink-700 leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-          {draft && (
-            <div className="mt-3 pt-3 border-t border-base-200">
-              <div className="flex items-center gap-2 mb-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-rail-500" />
-                <span className="text-xs font-semibold text-rail-600">Draft transaction ready</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-ink-500">{draft.vendor_name}</span>
-                <span className="font-bold text-ink-900 tabular-nums">
-                  {formatCurrency(draft.amount_cents, draft.currency)}
-                </span>
-              </div>
-            </div>
-          )}
+        <div className="max-w-[80%] rounded-2xl bg-rail-600 px-4 py-3">
+          <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">{msg.content}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex gap-3 flex-row-reverse animate-fade-in">
+    <div className="flex gap-3 animate-fade-in">
       <div className="w-8 h-8 rounded-lg bg-base-100 border border-base-200 flex items-center justify-center flex-shrink-0">
-        <span className="text-xs font-bold text-ink-500">U</span>
+        <span className="text-xs font-bold text-ink-500">P</span>
       </div>
-      <div className="max-w-[80%] rounded-2xl bg-rail-600 px-4 py-3">
-        <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-      </div>
-    </div>
-  );
-}
-
-function DraftCard({
-  draft, productName, onApprove, onDiscard, busy,
-}: {
-  draft: DraftTransactionData;
-  productName: string;
-  onApprove: () => void;
-  onDiscard: () => void;
-  busy: boolean;
-}) {
-  return (
-    <div className="card p-5 animate-slide-up border-rail-200">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-xl bg-rail-50 border border-rail-200 flex items-center justify-center">
-          <ShieldCheck className="w-5 h-5 text-rail-500" />
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-bold text-ink-900">Transaction ready for escrow</p>
-          <p className="text-xs text-ink-400">
-            The AI verified the amount against the product listing.
-          </p>
-        </div>
-      </div>
-
-      <div className="rounded-xl bg-base-50 border border-base-200 p-4">
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-ink-500">Product</span>
-            <span className="text-ink-800 font-medium">{productName}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-ink-500">Seller</span>
-            <span className="text-ink-800 font-medium">{draft.vendor_name}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-ink-500">Amount</span>
-            <span className="text-ink-900 font-bold text-base tabular-nums">
-              {formatCurrency(draft.amount_cents, draft.currency)}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1.5 mt-3 text-xs text-mint-600">
-        <CheckCircle2 className="w-3.5 h-3.5" /> Amount verified from conversation context
-      </div>
-
-      <div className="flex items-center gap-3 mt-4">
-        <button onClick={onApprove} disabled={busy} className="btn-primary flex-1">
-          <Lock className="w-4 h-4" /> Create escrow & hold funds
-        </button>
-        <button onClick={onDiscard} className="btn-ghost">
-          Discard
-        </button>
+      <div className="max-w-[80%] rounded-2xl bg-white border border-base-200 px-4 py-3">
+        <p className="text-sm text-ink-700 leading-relaxed whitespace-pre-wrap">{msg.content}</p>
       </div>
     </div>
   );

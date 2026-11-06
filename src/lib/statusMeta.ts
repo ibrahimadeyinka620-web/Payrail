@@ -1,4 +1,4 @@
-import type { TransactionStatus, EscrowEventType, AIVerdict } from '@/lib/types';
+import type { TransactionStatus, EscrowEventType } from '@/lib/types';
 
 export const STATUS_META: Record<
   TransactionStatus,
@@ -7,8 +7,8 @@ export const STATUS_META: Record<
   draft: { label: 'Draft', color: 'ink', icon: 'FileEdit' },
   awaiting_approval: { label: 'Awaiting Approval', color: 'amber', icon: 'ShieldAlert' },
   authorized: { label: 'Funds Held', color: 'amber', icon: 'Lock' },
-  deliverable_pending: { label: 'Awaiting Deliverable', color: 'amber', icon: 'PackageOpen' },
-  under_review: { label: 'AI Reviewing', color: 'rail', icon: 'ScanSearch' },
+  deliverable_pending: { label: 'Awaiting Delivery', color: 'amber', icon: 'PackageOpen' },
+  under_review: { label: 'Awaiting Confirmation', color: 'rail', icon: 'PackageCheck' },
   captured: { label: 'Funds Released', color: 'mint', icon: 'CheckCircle2' },
   voided: { label: 'Voided', color: 'ember', icon: 'XCircle' },
   expired: { label: 'Expired', color: 'ink', icon: 'TimerOff' },
@@ -16,19 +16,10 @@ export const STATUS_META: Record<
 
 export const EVENT_LABELS: Record<EscrowEventType, string> = {
   authorized: 'Funds Authorized (Held)',
-  deliverable_uploaded: 'Deliverable Uploaded',
-  review_started: 'AI Review Started',
-  review_passed: 'AI Review Passed',
-  review_failed: 'AI Review Failed',
+  delivered: 'Marked as Delivered',
   captured: 'Funds Captured & Released',
   voided: 'Authorization Voided',
   expired: 'Escrow Expired',
-};
-
-export const VERDICT_META: Record<AIVerdict, { label: string; color: 'rail' | 'mint' | 'ember' | 'ink' }> = {
-  pending: { label: 'Pending Review', color: 'rail' },
-  passed: { label: 'Verified', color: 'mint' },
-  rejected: { label: 'Rejected', color: 'ember' },
 };
 
 export function statusBadgeClass(color: string): string {

@@ -1,5 +1,5 @@
 import {
-  FileEdit, ShieldAlert, Lock, PackageOpen, ScanSearch,
+  FileEdit, ShieldAlert, Lock, PackageOpen, PackageCheck,
   CheckCircle2, XCircle, TimerOff, type LucideIcon,
 } from 'lucide-react';
 import type { TransactionStatus } from '@/lib/types';
@@ -9,7 +9,7 @@ export const STATUS_ICONS: Record<TransactionStatus, LucideIcon> = {
   awaiting_approval: ShieldAlert,
   authorized: Lock,
   deliverable_pending: PackageOpen,
-  under_review: ScanSearch,
+  under_review: PackageCheck,
   captured: CheckCircle2,
   voided: XCircle,
   expired: TimerOff,

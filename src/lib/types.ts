@@ -10,15 +10,10 @@ export type TransactionStatus =
 
 export type EscrowEventType =
   | 'authorized'
-  | 'deliverable_uploaded'
-  | 'review_started'
-  | 'review_passed'
-  | 'review_failed'
+  | 'delivered'
   | 'captured'
   | 'voided'
   | 'expired';
-
-export type AIVerdict = 'pending' | 'passed' | 'rejected';
 
 export type TimelineStep =
   | 'user_request'
@@ -71,18 +66,6 @@ export interface EscrowEvent {
   created_at: string;
 }
 
-export interface Deliverable {
-  id: string;
-  transaction_id: string;
-  filename: string;
-  storage_path: string;
-  mime_type: string | null;
-  size_bytes: number | null;
-  ai_verdict: AIVerdict;
-  ai_notes: string | null;
-  uploaded_at: string;
-}
-
 export interface AuditTimelineEntry {
   id: string;
   transaction_id: string;
@@ -130,6 +113,8 @@ export interface ChatMessageRow {
   created_at: string;
 }
 
+export type OrderStatus = 'pending' | 'approved' | 'declined';
+
 export interface DraftTransactionData {
   vendor_name: string;
   vendor_handle: string | null;
@@ -137,7 +122,10 @@ export interface DraftTransactionData {
   amount_cents: number;
   currency: string;
   ai_reasoning: string;
+  source_text: string;
   proof_verified: boolean;
+  order_status: OrderStatus;
+  transaction_id?: string;
 }
 
 export interface ConversationWithDetails extends Conversation {
@@ -148,6 +136,5 @@ export interface ConversationWithDetails extends Conversation {
 
 export interface TransactionWithDetails extends Transaction {
   escrow_events?: EscrowEvent[];
-  deliverables?: Deliverable[];
   audit_timeline?: AuditTimelineEntry[];
 }

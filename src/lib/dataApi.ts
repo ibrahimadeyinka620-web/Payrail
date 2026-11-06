@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type {
-  Transaction, EscrowEvent, Deliverable, AuditTimelineEntry,
+  Transaction, EscrowEvent, AuditTimelineEntry,
   Product, Conversation, ChatMessageRow, DraftTransactionData,
 } from '@/lib/types';
 
@@ -35,16 +35,6 @@ export async function fetchEscrowEvents(transactionId: string): Promise<EscrowEv
   return data as EscrowEvent[];
 }
 
-export async function fetchDeliverables(transactionId: string): Promise<Deliverable[]> {
-  const { data, error } = await supabase
-    .from('deliverables')
-    .select('*')
-    .eq('transaction_id', transactionId)
-    .order('uploaded_at', { ascending: true });
-  if (error) throw error;
-  return data as Deliverable[];
-}
-
 export async function fetchAuditTimeline(transactionId: string): Promise<AuditTimelineEntry[]> {
   const { data, error } = await supabase
     .from('audit_timeline')
@@ -53,38 +43,6 @@ export async function fetchAuditTimeline(transactionId: string): Promise<AuditTi
     .order('created_at', { ascending: true });
   if (error) throw error;
   return data as AuditTimelineEntry[];
-}
-
-export async function createTransaction(
-  input: Omit<Transaction, 'id' | 'user_id' | 'created_at' | 'updated_at'>
-): Promise<Transaction> {
-  const { data, error } = await supabase
-    .from('transactions')
-    .insert(input)
-    .select('*')
-    .single();
-  if (error) throw error;
-  return data as Transaction;
-}
-
-export async function updateTransactionStatus(id: string, status: Transaction['status']): Promise<void> {
-  const { error } = await supabase
-    .from('transactions')
-    .update({ status })
-    .eq('id', id);
-  if (error) throw error;
-}
-
-export async function addEscrowEvent(
-  transactionId: string,
-  eventType: EscrowEvent['event_type'],
-  amountCents: number | null,
-  detail: string
-): Promise<void> {
-  const { error } = await supabase
-    .from('escrow_events')
-    .insert({ transaction_id: transactionId, event_type: eventType, amount_cents: amountCents, detail });
-  if (error) throw error;
 }
 
 export async function addAuditEntry(
@@ -104,37 +62,14 @@ export async function addAuditEntry(
   if (error) throw error;
 }
 
-export async function createDeliverable(
+export async function advanceTransaction(
   transactionId: string,
-  filename: string,
-  storagePath: string,
-  mimeType: string | null,
-  sizeBytes: number | null
-): Promise<Deliverable> {
-  const { data, error } = await supabase
-    .from('deliverables')
-    .insert({
-      transaction_id: transactionId,
-      filename,
-      storage_path: storagePath,
-      mime_type: mimeType,
-      size_bytes: sizeBytes,
-    })
-    .select('*')
-    .single();
-  if (error) throw error;
-  return data as Deliverable;
-}
-
-export async function updateDeliverableVerdict(
-  id: string,
-  verdict: 'passed' | 'rejected',
-  notes: string
+  action: 'mark_delivered' | 'confirm_delivery' | 'void'
 ): Promise<void> {
-  const { error } = await supabase
-    .from('deliverables')
-    .update({ ai_verdict: verdict, ai_notes: notes })
-    .eq('id', id);
+  const { error } = await supabase.rpc('advance_transaction', {
+    p_transaction_id: transactionId,
+    p_action: action,
+  });
   if (error) throw error;
 }
 
@@ -224,6 +159,16 @@ export async function fetchConversation(id: string): Promise<Conversation | null
   return data as Conversation | null;
 }
 
+export async function fetchConversationByTransaction(transactionId: string): Promise<Conversation | null> {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select('*')
+    .eq('transaction_id', transactionId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as Conversation | null;
+}
+
 export async function createConversation(
   buyerId: string,
   sellerId: string,
@@ -245,17 +190,6 @@ export async function createConversation(
     .single();
   if (error) throw error;
   return data as Conversation;
-}
-
-export async function updateConversation(
-  id: string,
-  updates: Partial<Conversation>
-): Promise<void> {
-  const { error } = await supabase
-    .from('conversations')
-    .update(updates)
-    .eq('id', id);
-  if (error) throw error;
 }
 
 export async function fetchMessages(conversationId: string): Promise<ChatMessageRow[]> {
@@ -288,6 +222,15 @@ export async function sendMessage(
     .single();
   if (error) throw error;
   return data as ChatMessageRow;
+}
+
+export async function respondToOrder(messageId: string, accept: boolean): Promise<string | null> {
+  const { data, error } = await supabase.rpc('respond_to_order', {
+    p_message_id: messageId,
+    p_accept: accept,
+  });
+  if (error) throw error;
+  return (data as string | null) ?? null;
 }
 
 // ─── Seller profile lookup ────────────────────────────────

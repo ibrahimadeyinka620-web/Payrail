@@ -47,8 +47,9 @@ export async function fetchSellerTrust(sellerId: string): Promise<TrustScore> {
     .select('amount_cents, status')
     .eq('user_id', sellerId);
 
-  const completed = (txns ?? []).filter((t: Transaction) => t.status === 'captured');
-  const totalVolume = completed.reduce((s: number, t: Transaction) => s + t.amount_cents, 0);
+  type TxnSummary = Pick<Transaction, 'amount_cents' | 'status'>;
+  const completed = ((txns ?? []) as TxnSummary[]).filter((t) => t.status === 'captured');
+  const totalVolume = completed.reduce((s, t) => s + t.amount_cents, 0);
 
   // Factor in products listed as activity
   const activityScore = completed.length + Math.min(5, (productsCount ?? 0));

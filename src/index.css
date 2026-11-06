@@ -1,0 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-base-100 text-ink-800 font-sans;
+  }
+  * {
+    @apply border-base-200;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/80 backdrop-blur-xl border border-base-200;
+  }
+  .glass-soft {
+    @apply bg-base-50/80 backdrop-blur-md border border-base-200;
+  }
+  .card {
+    @apply bg-white rounded-2xl border border-base-200 shadow-card transition-all;
+  }
+  .card-hover {
+    @apply card hover:shadow-card-hover hover:border-base-300;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-rail-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-rail-500 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-base-100 px-4 py-2.5 text-sm font-semibold text-ink-700 border border-base-300 transition-all hover:bg-base-200 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink-500 transition-all hover:text-ink-800 hover:bg-base-100;
+  }
+  .btn-amber {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-semibold text-ink-900 transition-all hover:bg-amber-300 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-ember-500/90 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-ember-500 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .input {
+    @apply w-full rounded-xl bg-white border border-base-300 px-4 py-2.5 text-sm text-ink-800 placeholder:text-ink-400 transition-all focus:outline-none focus:border-rail-500 focus:ring-2 focus:ring-rail-500/20;
+  }
+  .label {
+    @apply block text-xs font-semibold uppercase tracking-wider text-ink-500 mb-1.5;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+  .badge-rail {
+    @apply badge bg-rail-100 text-rail-700 border border-rail-200;
+  }
+  .badge-amber {
+    @apply badge bg-amber-100 text-amber-700 border border-amber-200;
+  }
+  .badge-mint {
+    @apply badge bg-mint-100 text-mint-700 border border-mint-200;
+  }
+  .badge-ember {
+    @apply badge bg-ember-100 text-ember-700 border border-ember-200;
+  }
+  .badge-ink {
+    @apply badge bg-base-100 text-ink-600 border border-base-300;
+  }
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-[0.15em] text-ink-400;
+  }
+  .product-img {
+    @apply w-full h-full object-cover;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ddd5c8;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c4b8a6;
+}
+
+/* Selection */
+::selection {
+  background: rgba(34, 163, 141, 0.2);
+  color: #10453d;
+}
